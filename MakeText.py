@@ -128,7 +128,7 @@ class YouTubeDownloader(object): #youtube에서 동영상 다운 받기
             return 0
         soup = BeautifulSoup(source, "html.parser")
         title = soup.find('title').text #페이지 크롤링하여 영상 제목 가져오기
-        title = re.sub("[-=+,#/\?:^$.@*\"※~&%ㆍ!』\\‘|\(\)\[\]\<\>`\'》]", "", title) #영상 제목에서 특수 문자 제외하기
+        title = re.sub("[-=+,#/\?:^$@*\"※~&%ㆍ!』\\‘|\(\)\[\]\<\>`\'》]", "", title) #영상 제목에서 특수 문자 제외하기
         print(self.path)
         yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first().download(self.path) #영상 다운 받기
         if os.path.isfile(self.path+'Unknown YouTube Video Title.mp4'):
