@@ -12,6 +12,8 @@ from konlpy.tag import Okt
 from wordcloud import WordCloud
 from collections import Counter
 import kss
+import glob
+import docx
 
 class Summerize(object):
 
@@ -74,33 +76,35 @@ class Summerize(object):
         print(result)
 
         self.wc.generate_from_frequencies(dict(result))
-        self.wc.to_file(title+"_wordCloud.png")
+        self.wc.to_file("wordCloud.png")
 
-    def make_file(self, sentences, title):
-        #요약 문장, 단어 파일에 담기
+    def make_file(self, sentence1, sentence2, title):
+        # 요약 문장, 단어 파일에 담기
 
-        f = open(title+".txt", "a", encoding="UTF-8")#파일 이름 존재 시 덮어씌어짐
+        doc = docx.Document()
+        doc.add_heading(title+"영상 요약", 0)
+        para = doc.add_heading("<줄거리 요약>\n", 1)
 
-        if(self.number == 0) :
-            f.write("<줄거리 요약> \n ")
-            self.number = 1
-        else :
-            f.write("<키워드 요약>\n")
-            self.number = 0
-
-
-        for sentence in sentences:
+        for sentence in sentence1:
             print(sentence)
-            f.write(sentence + "\n")
+            para = doc.add_paragraph()
+            run = para.add_run(sentence)
 
-        f.write("\n\n")
-        f.close()
+        para = doc.add_heading("\n\n<문장 키워드 요약>\n", 1)
+
+        for sentence in sentence2:
+            print(sentence)
+            para = doc.add_paragraph()
+            run = para.add_run(sentence)
+
+        para = doc.add_heading("\n\n<영상 Keyword>\n", 1)
+        doc.add_picture(os.getcwd() + '\\wordCloud.png', width=docx.shared.Cm(10), height=docx.shared.Cm(10))  # 위치 바꾸기
+        doc.save(title+'.docx')  # 저장 이름 바꾸기
 
 
 class AudioToText(object):
     def __init__(self, path, title, num):
         self.path = path+title+str(num)+".wav"
-        print("실행 파일명:", self.path)
 
     def makeText(self): #음성 파일 텍스트로 변환
         r = sr.Recognizer()
@@ -124,9 +128,15 @@ class YouTubeDownloader(object): #youtube에서 동영상 다운 받기
             return 0
         soup = BeautifulSoup(source, "html.parser")
         title = soup.find('title').text #페이지 크롤링하여 영상 제목 가져오기
-        title = re.sub("[-=+,#/\?:^$.@*\"※~&%ㆍ!』\\‘|\(\)\[\]\<\>`\'…》]", "", title) #영상 제목에서 특수 문자 제외하기
+        title = re.sub("[-=+,#/\?:^$.@*\"※~&%ㆍ!』\\‘|\(\)\[\]\<\>`\'》]", "", title) #영상 제목에서 특수 문자 제외하기
+        print(self.path)
         yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first().download(self.path) #영상 다운 받기
-        os.rename(self.path+'Unknown YouTube Video Title.mp4', self.path+title+'.mp4') #영상 제목 바꾸기
+        if os.path.isfile(self.path+'Unknown YouTube Video Title.mp4'):
+            os.rename(self.path+'Unknown YouTube Video Title.mp4', self.path+title+'.mp4') #영상 제목 바꾸기
+        else:
+            other_file = glob.glob(self.path+title[0:3]+"*.mp4")
+            other_title = os.path.basename(other_file[0])
+            os.rename(self.path+other_title, self.path+title+".mp4")
         return title
 
     def pathvalue(self):
@@ -144,6 +154,7 @@ class ChangeMovie(object):
 
         filedir = str(os.getcwd() + "/movie/" + self.filename)
         src = filedir + ".mp3"
+        print(src)
         sound = AudioSegment.from_mp3(src)
         num = 0
         movie_length = (len(sound)//1000)*1000
@@ -156,7 +167,7 @@ class ChangeMovie(object):
             num += 1
         return num
 
-url = 'https://www.youtube.com/watch?v=4jc3GZchzQY' #url 입력할 것으로 바꿀 예정
+url = input("url 입력: ")
 y = YouTubeDownloader(url)
 yp = y.pathvalue()
 yt = y.downloader()
@@ -174,5 +185,8 @@ if yt != 0:
 summer = Summerize()
 text = summer.makeSentence(original_text)
 summer.keyword_nouns(text, yt)
-summer.make_file(summer.text2sentences(text), yt)
-summer.make_file(summer.get_nouns(summer.text2sentences(text)), yt)
+
+complete_sentences1 = summer.text2sentences(text)
+complete_sentences2 = summer.get_nouns(summer.text2sentences(text))
+
+summer.make_file(complete_sentences1, complete_sentences2, yt)
